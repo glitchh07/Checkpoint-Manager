@@ -1,0 +1,120 @@
+# ---------------------------
+# Python Ignore Patterns
+# ---------------------------
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other info.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PyCharm / VS Code / IDE settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# VS Code Python settings cache
+.python_env/
+__pypackages__/
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Checkpoints and backups
+checkpoints/
+*.pkl
+*.tmp
+
+# Mac / Windows system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------------------------
+# Custom for your project
+# ---------------------------
+
+# Ignore simulation outputs or large data files
+*.csv
+*.npy
+*.npz
+*.h5
+*.txt
+*.json
+
+# Ignore any experimental folders
+experiments/
+runs/
+outputs/

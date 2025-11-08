@@ -5,15 +5,13 @@ import time
 
 class CheckpointManager:
 
-    def __init__(self, filename, config, save_dir=None):
+    def __init__(self, filename, config, save_dir=os.getcwd()):
         
-        self.save_dir = save_dir or os.getcwd()
-        self.path = os.path.join(self.save_dir, filename)    #creating path to save file and loading it if it exists
-        self.data = self.load_file(config)
         self.start_time = time.time()   #getting the startime
+        self.save_dir = save_dir #getting the save dir
         self.backup_path = None         #using none for update these in their respective fuction
         self.last_backup_time = None
-        #dict for adding useful infos to the file for verifying mostly
+        #dict for adding useful infos to the file (for verifying mostly)
         self.metadata = {
             "timestamp": time.ctime(),
             "elapsed": time.time() - self.start_time,
@@ -26,10 +24,12 @@ class CheckpointManager:
         self.smart_last_backup_time = None
         self.smart_backup_files = glob.glob(os.path.join(self.save_dir, "smartbackup*"))
         
+        self.path = os.path.join(self.save_dir, filename)    #creating path to save file and loading it if it exists
+        self.data = None
+        
         os.makedirs(self.save_dir, exist_ok=True)    #creating folder if doesnt exist
 
-
-    def save_file(self, data):
+    def save_file(self, data, progress=None):
   
         for attempt in range(3):    #for loop if cant read file each time after saving for 3 times
             
@@ -47,7 +47,27 @@ class CheckpointManager:
             os.replace(temp_path, self.path)
 
             if self.verify_save(self.path): #verifying the saved file after each save
-                print("✅ Checkpoint verified and saved.")
+                if not progress:
+                    print("✅ Checkpoint verified and saved.")
+                else:
+                    if progress >= 100_000_000_000:
+                        if progress % 100_000_000_000:
+                            print(f"✅ Checkpoint verified and saved {progress} times!!")
+                    if progress >= 100_000_000:
+                        if progress % 100_000_000:
+                            print(f"✅ Checkpoint verified and saved {progress} times!!")
+                    elif progress >= 1_000_000:
+                        if progress % 1_000_000:
+                            print(f"✅ Checkpoint verified and saved {progress} times!!")
+                    elif progress >= 1000:
+                        if progress % 1000 == 0:
+                            print(f"✅ Checkpoint verified and saved {progress} times!!")
+                    elif progress >= 10:
+                        if progress % 10 == 0:
+                            print(f"✅ Checkpoint verified and saved {progress} times!!")
+                    else:
+                        print("✅ Checkpoint verified and saved.")
+
                 break
             else:
                 print(f"⚠️ Attempt {attempt+1} failed, retrying...")
@@ -90,15 +110,18 @@ class CheckpointManager:
         
         data = self._load_specific_file(self.path, config)  #trying main file first
         if data:
-            ask = input("📁Existing checkpoint found!! Load (y/n)?").strip().lower()
+            ask = input("📁Existing checkpoint found!! Load (y/n)? ").strip().lower()
             if ask not in ("n", "no", "N"):
+                self.data = data
                 return data
         
         print("\nNo checkpoint file found...")
         if self.backup_path:    #checking if there is a chekpoint file available
-            ask = input("\n📁Existing backup file found!! Load (y/n)?").strip().lower()
+            ask = input("\n📁Existing backup file found!! Load (y/n)? ").strip().lower()
             if ask not in ("no", "n", "N"):
-                return  self._load_specific_file(self.backup_path, config)
+                data = self._load_specific_file(self.backup_path, config)
+                self.data = data
+                return data
         
         if self.smart_backup_files:
             print(f"📁Found {len(self.smart_backup_files)} smart backups")
@@ -113,6 +136,7 @@ class CheckpointManager:
                     data = self._load_specific_file(backup, config)
                     if data:
                         print(f"✅ Loaded: {os.path.basename(backup)}")
+                        self.data = data
                         return data
 
         
@@ -133,14 +157,14 @@ class CheckpointManager:
     def remove_checkpoints(self):   #fuction for removing all checkpoints together
 
         try:
-            if os.path.exists(self.path):   #removing main checkpoint
+            if self.path and os.path.exists(self.path):   #removing main checkpoint
                 os.remove(self.path)
                 print("Removed checkpoint!!")
         except FileNotFoundError:
             pass
 
         try:
-            if os.path.exists(self.backup_path):    #checking for simple backup files
+            if self.backup_path and os.path.exists(self.backup_path):    #checking for simple backup files
                 os.remove(self.backup_path)
                 print("Removed backup checkpoint!!")
         except FileNotFoundError:
@@ -176,8 +200,8 @@ class CheckpointManager:
                 self.last_progress = current_progress
 
             #calculating improvement
-            improvement = (current_progress - self.last_progress)/self.last_progress  if self.last_progress and self.last_progress != 0 else improvement = 1
-                
+            improvement = (current_progress - self.last_progress) / self.last_progress if self.last_progress else 1
+    
             if improvement >= min_improvement:  #checking if the condition matches
                 self.smart_backup_count += 1
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -242,25 +266,25 @@ class CheckpointManager:
     def remove_specific_checkpoints(self, config):   #fuction for removing checkpoints with same config together
 
         try:
-            if os.path.exists(self.path):   #removing main checkpoint
+            if self.path and os.path.exists(self.path):   #removing main checkpoint
                 data = self._load_full_file(self.path, config)
                 if data and data['metadata'].get('config') == config:
                     os.remove(self.path)
                     print("Removed checkpoint!!")
                 else:
                     pass
-        except FileNotFoundError:
+        except (FileNotFoundError, ValueError):
             pass
         
         try:
-            if os.path.exists(self.backup_path):    #checking for simple backup files
+            if self.backup_path and os.path.exists(self.backup_path):    #checking for simple backup files
                 data = self._load_full_file(self.backup_path, config)
                 if data and data['metadata'].get('config', None) == config:
                     os.remove(self.backup_path)
                     print("Removed backup checkpoint!!")
                 else:
                     pass
-        except FileNotFoundError:
+        except (FileNotFoundError, ValueError):
             pass
 
         if self.smart_backup_files: #removing all smart backup files
@@ -273,7 +297,7 @@ class CheckpointManager:
                             f+=1
                         else:
                             pass
-                    except FileNotFoundError:
+                    except (FileNotFoundError, ValueError):
                         pass
                 print(f"{f} Smart Backup files removed!!")
                         
