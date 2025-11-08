@@ -31,7 +31,7 @@ cd <Checkpoint-Manager>
 ### 2️⃣ Basic Usage 
 
 ```bash
-from file import CheckpointManager  # or rename to checkpoint_manager.py
+from Checkpoint-Manager.file import CheckpointManager  # or rename to checkpoint_manager.py
 
 config = {"version": 1.0, "experiment": "dice_simulation"}
 
@@ -148,19 +148,5 @@ Each saved file automatically includes metadata:
   💬 “Code that can recover itself is code that you can trust.”
   — Glitchh
 
-
----
-
-### ✅ What to Do Next
-
-1. Copy-paste this into your `README.md`.  
-2. Replace `<your-username>` and `<repo-name>` with your GitHub info.  
-3. Rename `file.py` → `checkpoint_manager.py` if you want a clean name.  
-4. Add your license (`MIT` — GitHub can auto-generate this).  
-
----
-
-If you’d like, I can also generate a **short, professional one-line tagline** for your repo (the line that appears *under* the repo name on GitHub, e.g. *“A lightweight checkpoint and backup system for Python experiments”*).  
-Want me to make a few options so you can pick one?
 
 
