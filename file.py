@@ -65,7 +65,7 @@ class CheckpointManager:
                         if not data: print("File is empty!! Skipping...") ; return False  #returning if the file is empty
                         if not isinstance(data, dict) or ("metadata" not in data):    #checking if the data is in dict format and has metadata key in it
                             print("\nCopying failed: Invalid checkpoint format...\n")
-                            return None
+                            return False
                         if (not data['metadata'].get('config', None)) or data['metadata']['config'] != config: #checking if config matches
                             print("\nCopying failed: Config mismatched...\n")
                             print(f"file config: {data['metadata']['config']}")
@@ -108,6 +108,26 @@ class CheckpointManager:
         except Exception as e:   #showing error if there is an error
             print(f"\n⚠️ Corrupted checkpoint: {e}\n")
             return None
+        
+    @staticmethod
+    def _remove_specific_file(path :str, config :any) ->bool:
+        try:
+            if path and os.path.exists(path):
+                if config:
+                    with open(path, "rb") as f:
+                        data = pickle.load(f)
+                        if not isinstance(data, dict) or ("metadata" not in data):    #checking if the data is in dict format and has metadata key in it
+                            print("\nCopying failed: Invalid checkpoint format...\n")
+                            return False
+                        if (not data['metadata'].get('config', None)) or data['metadata']['config'] != config: #checking if config matches
+                            print("\nCopying failed: Config mismatched...\n")
+                            print(f"file config: {data['metadata']['config']}")
+                            return False
+                os.remove(path)
+                return True
+        except Exception as e:
+            print(f"Removing failed: {e}")
+            return False
         
     @staticmethod
     def _verify_save(path: str) ->bool:    #function for verifying after saving
@@ -194,7 +214,7 @@ class CheckpointManager:
             return None
 
         for filename, config in filenames_dict.items():   #getting filenames and config from the dict
-            print(f"\Trying loading up total {len(filenames_dict.items())} files...\n")
+            print(f"\nTrying loading up total {len(filenames_dict.items())} files...\n")
 
             final_data = None   #defining the final path var
             if not config: config=self.config.setdefault(filename, None)    #getting config from self (if config not entered)  if the filename is registered
@@ -333,30 +353,22 @@ class CheckpointManager:
  
     def remove_checkpoints(self):   #fuction for removing all checkpoints together
 
-        try:
-            if self.path.values():   #removing main checkpoint
-                for path in self.path.values(): 
-                    if os.path.exists(path): os.remove(path)
-                    print("Removed checkpoint!!")
-        except FileNotFoundError:
-            pass
 
-        try:
-            if self.auto_backup_dict.values():  #removing all auto backups
-                for paths in self.auto_backup_dict.values():
-                    for f in paths:    
-                        if os.path.exists(f):    #checking for simple backup files
-                            os.remove(f)
-                print("Removed all auto backup checkpoints!!")
-        except FileNotFoundError:
-            pass
+        if self.path.values():   #removing main checkpoint
+            for path in self.path.values(): 
+                if self._remove_specific_file(path): print("Removed checkpoint!!")
+
+
+        if self.auto_backup_dict.values():  #removing all auto backups
+            for paths in self.auto_backup_dict.values():
+                for f in paths:    
+                    self._remove_specific_file(f)
+        print(f"{len(self.auto_backup_dict.values()) if self.auto_backup_dict.values() else 0} Auto Backup files removed!!")
+
 
         if self.smart_backup_dict.values(): #removing all smart backup files
                 for n, file in enumerate(self.smart_backup_dict.values(), start=1):
-                    try:
-                        os.remove(file)
-                    except FileNotFoundError:
-                        pass
+                    self._remove_specific_file(file)
                 print(f"{n if 'n' in locals() else 0} Smart Backup files removed!!")
         
     def auto_backup_smart(self, current_progress, min_improvement = 0.1, interval :int|float = 1800, max_backups :int= 5, filenames_dict :list|str|dict=None) ->None:   #smart backup function 
@@ -431,49 +443,36 @@ class CheckpointManager:
             return
 
         #using for loop for getting filename and config
-        if isinstance(filenames_dict, dict): items = filenames_dict.items()
+        if isinstance(filenames_dict, dict): items = list(filenames_dict.items())
         elif isinstance(filenames_dict, (tuple, list)): items = [(f, None) for f in filenames_dict]
         else: items = [(filenames_dict, None)]
 
         for filename, config in items:
             print(f"Removing total {len(items)} files...")
+            print(f"\nNow trying to remove: {filename}...\n")
             if not config: config=self.config.setdefault(filename, None)
-            try:
-                if self.path[filename] and os.path.exists(self.path[filename]):   #removing main checkpoint
-                    data = self._load_specific_file(self.path[filename], config)
-                    if data and data['metadata'].setdefault('config') == config:
-                        os.remove(self.path[filename])
-                        print("Removed checkpoint!!")
-                    else:
-                        pass
-            except (FileNotFoundError, ValueError):
-                pass
+            if self._remove_specific_file(self.path[filename], config): 
+                self.path.pop(filename)
+                self.config.pop(filename)
+                self.filenames.remove(filename)
+                print(f"Removed checkpoint: {filename}")
             
-            try:
-                if self.auto_backup_dict.setdefault(filename, []):
-                    for path in self.auto_backup_dict.setdefault(filename, []):
-                        if os.path.exists(path):
-                            data = self._load_specific_file(path, config)
-                            if config and data and data['metadata'].setdefault('config', 0) == self.config.setdefault(filename, 0):
-
-                                os.remove(path)
-                                print(f"Removed backup checkpoint: {os.path.basename(path)}")
-
-            except (FileNotFoundError, ValueError):
-                pass
+            if self.auto_backup_dict.setdefault(filename, []):
+                f=0
+                for path in self.auto_backup_dict.setdefault(filename, []):
+                    if self._remove_specific_file(path, self.config.setdefault(filename, None)):
+                        f+=1
+                        self.auto_backup_dict.pop(filename, None)
+                        self.auto_backup_success.pop(filename, None)
+                        self.last_backup_time.pop(filename, None)
+                    print(f"Removed total {f} auto backups!!")
 
             if self.smart_backup_dict.setdefault(filename, []): #removing all smart backup files matching the filename
-                    f = 0
-                    for n, file in enumerate(self.smart_backup_dict.setdefault(filename, []), start=1):
-                        try:
-                            data = self._load_specific_file(file, config)
-                            if config and data and data['metadata'].setdefault('config', 0) == self.config.setdefault(filename, 0):
-                                os.remove(file)
-                                f+=1
-
-                        except (FileNotFoundError, ValueError):
-                            pass
-                    print(f"{f} Smart Backup files removed!!")
+                f = 0
+                for n, file in enumerate(self.smart_backup_dict.setdefault(filename, []), start=1):
+                    if self._remove_specific_file(file, config):
+                        f+=1
+                print(f"{f} Smart Backup files removed!!")
                             
 #need to make a way to rename the auto backups after modifying if modify=True   #completed
 #need to change the glob filter for smar backups in load_file(). just copy auto backup  #completed
@@ -490,9 +489,11 @@ class CheckpointManager:
 #modify this so that self.path is a dict that contains filename: then all the data data for that filename   #completed but created as a list and everything else is a dict with key as filename
 #create a load_all_files() for loading everything and assigning the values to every self var(S) #half-completed dont need it modified load_files to load multiple files and config if entered as an dict and not entered then will load what is available in the self.filenames 
 
-#starting point(remove this after starting)
-#debug the code
+#debug the code #completed
+
+#start from here
 #create a _remove_specific_checkpoint like the load specific one then implement it to all the remove functions
+#update README.md
 #end of version 2.0(changing the core concept so that it works with multiple files)
 
 #version 3.0(adding more functions)
